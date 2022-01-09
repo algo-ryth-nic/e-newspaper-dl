@@ -7,6 +7,7 @@ import pickle
 from datetime import datetime, timedelta, time
 import asyncio
 import os
+import argparse
 
 from google_oauth import create_service
 from email.mime.multipart import MIMEMultipart
@@ -205,13 +206,72 @@ This is an automated message... Please don't reply to this email.
 
 if __name__ == "__main__":
     drive_folder_id = ""
-    mailing_list = [
-        '',
-        ''
-    ]
+    mailing_list = [ ]
 
     channel_link = 'https://t.me/TOI_dailyepaper'
     newspaper_to_find = 'TOI DELHI'
 
+    cli_parser = argparse.ArgumentParser(description = 'Newspaper PDF Scraper + Dispatcher')
+    cli_parser.add_argument(
+        '--channel_link', '-c',
+        help='Specify Telegram channel link',
+        default = channel_link,
+        dest='channel_link',
+        metavar='LINK',
+        type=str
+    )
+    cli_parser.add_argument(
+        '--drive_folder_id', '-d',
+        help='Specify Google Drive folder ID to upload the file',
+        default = drive_folder_id,
+        dest='drive_folder_id',
+        metavar='ID',
+        type=str
+    )
+    cli_parser.add_argument(
+        '--skip-upload',
+        help='Skip uploading to drive if size of file is less than 35mb',
+        action='store_true',
+        dest='skip_upload',
+        default=False
+    )
+
+    cli_parser.add_argument(
+        '--email', '-e',
+        help='Email address to send the file to',
+        default = mailing_list,
+        nargs='+',
+        dest='email',
+        type=str
+    )
+    cli_parser.add_argument(
+        '--add-mail-list', '-a',
+        help='Add email address to current mailing list',
+        type=str,
+        nargs='+',
+        dest='additional_emails',
+        metavar='EMAIL'
+    )
+    cli_parser.add_argument(    
+        '--newspaper', '-n',
+        help='Newspapers to find',
+        default = newspaper_to_find,
+        nargs='+',
+        dest='newspaper',
+        metavar='NAME',
+        type=str
+    )
+
+    args = cli_parser.parse_args()
+
+    # assigning values
+    channel_link = args.channel_link
+    drive_folder_id = args.drive_folder_id
+    mailing_list = args.email
+    newspaper_to_find = args.newspaper
+    if args.additional_emails:
+        mailing_list.extend(args.additional_emails)
+
+    # calling main function
     main(channel_link, drive_folder_id, mailing_list, newspaper_to_find)
 
