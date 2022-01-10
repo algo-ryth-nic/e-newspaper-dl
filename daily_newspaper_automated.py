@@ -28,7 +28,7 @@ def progress_bar(current, total):
 
 
 def search_for_file(client, channel, search_query, current_date, file_paths):
-    file_name = f"./tmp/{'_'.join( search_query.split(' ') )}.pdf"
+    file_name = f"./tmp/{'-'.join( search_query.upper().split(' ') )}.pdf"
 
     # getting last message and checking if any new messages made on the same day yet
     # filter to show only document type media, and using search to find similar file of similar names
@@ -47,7 +47,7 @@ def search_for_file(client, channel, search_query, current_date, file_paths):
             print("\n[*] Downloading File...")
             # that means we found our pdf file
             # we'll download this file, it will override the old file if present in the path
-            # msg.download_media(file = file_name, progress_callback = progress_bar)
+            msg.download_media(file = file_name, progress_callback = progress_bar)
             
             print("\n[*] File Downloaded!")
 
@@ -92,15 +92,15 @@ def run_telethon_client(session_string, cred, channel_links, newspapers):
     # not a single newspaper been downloaded 
     if newspaper_download:
         print(f"\n>> {len(file_paths)} Newspapers files downloaded!")
-        return True
+        return (True, file_paths)
     else:
        print("\n[*] No newspapers was found!")
-       return False
+       return (False, None)
         
 
 
 
-def upload_file_to_drive(folder_id, upload_file_name):
+def upload_file_to_drive(folder_id, upload_file_name, file_path):
     # creating the service
     CLIENT_SECRET_FILE = 'client_id.json'
     API_NAME = 'drive'
@@ -116,7 +116,7 @@ def upload_file_to_drive(folder_id, upload_file_name):
     }
 
     # uploading to drive
-    media = MediaFileUpload(file_name, mimetype = 'application/pdf')
+    media = MediaFileUpload(file_path, mimetype = 'application/pdf')
 
     response = service.files().create(
             body = file_metadata,
@@ -171,7 +171,7 @@ def send_email_using_gmailAPI(To, Subject, Body):
     print(f"\n[gmail-Service] {message}")
 
 
-def main(channel_link, drive_folder_id, mailing_list, newspaper_to_find):
+def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_upload):
     print("Script has started running")
     # event is <dict>
 
@@ -193,40 +193,54 @@ def main(channel_link, drive_folder_id, mailing_list, newspaper_to_find):
     print(channel_link)
 
     # start telegram scraper
-    status = run_telethon_client(auth_key, cred, channel_link, newspaper_to_find)
+    status = run_telethon_client(auth_key, cred, channel_link, newspapers_to_find)
 
-    if status:
+    if status[0]:
+        # for each file in the list
+        for file_path in status[1]:
+            
+            if os.path.exists(file_path):
+                current_date = datetime.utcnow() + timedelta(hours = 5, minutes = 30)
 
-        if os.path.exists(file_name):
-            current_date = datetime.utcnow() + timedelta(hours = 5, minutes = 30)
+                name = os.path.basename(file_path)[:-4]
+                file_size = os.path.getsize(file_path)/10**6
 
-            # uploading to drive
-            # FOLDER ID
-            folder_id = drive_folder_id
-            new_file_name = "TOI-DELHI-" + current_date.strftime("%d-%m-%y")
 
-            link = upload_file_to_drive(folder_id, new_file_name)
+                # uploading to drive
+                link = None
 
-            print(f"\n[*] File: {file_name}\nSize: {os.path.getsize(file_name)/10**6} mb\n[*] Successfully Uploaded!")
+                # Skip uploading to drive if size of file is less than 35mb
+                if file_size > 35 or not skip_upload:
+                    # FOLDER ID
+                    folder_id = drive_folder_id
+                    new_file_name = name.upper()+ '-' + current_date.strftime("%d-%m-%y")
+    
+                    link = upload_file_to_drive(folder_id, new_file_name, file_path)
 
-            # sending email
-            to = mailing_list
+                    print(f"\n[*] File: {file_path}\nSize: {file_size} mb\n[*] Successfully Uploaded!\n")
+                else:
+                    print(f"\n[*] File: {file_path}\nSize: {file_size} mb\n[*] Skipped Uploading!\n")
+                # link of the file if it was uploaded to drive, later added to body of email
+                msg_drive_link = "Link to the Newspaper: " + link if link else "\n"
 
-            subject = "TOI DELHI " + current_date.strftime("%d/%m/%y")
-            body =f"""The Times of India (Delhi) newspaper for \"{current_date.strftime("%A, %B %d, %Y")}\" will be found below along with the link to it.\n
-Link to newspaper: {link}
+                # sending email
+                to = mailing_list
 
-For any problems, contact me.
+                subject = name.upper() + " " + current_date.strftime("%d/%m/%y")
+                body =f"""{name.upper()} newspaper for \"{current_date.strftime("%A, %B %d, %Y")}\" will be found below along with the link to it.\n
+    {msg_drive_link}
 
-This is an automated message... Please don't reply to this email.
-            """
+    For any problems, contact me.
 
-            send_email_using_gmailAPI(to, subject, body)
+    This is an automated message... Please don't reply to this email.
+                """
+                print(body)
+                # send_email_using_gmailAPI(to, subject, body)
 
-            print("\n[*] Success!")
+                print("\n[*] Success!")
 
-        else:
-            print(f"\n[*] Path doesn\'t exist; {file_name}")
+            else:
+                print(f"\n[*] Path doesn\'t exist; {file_path}")
 
     else:
         print("\n\n>> Email couldn\'t be prepared, since Client wasn\'t able to find the pdf file")
@@ -315,5 +329,5 @@ if __name__ == "__main__":
     print(f'{channel_link=}, {drive_folder_id=}, {mailing_list=}, {newspaper_to_find=}')
 
     # calling main function
-    main(channel_link, drive_folder_id, mailing_list, newspaper_to_find)
+    main(channel_link, drive_folder_id, mailing_list, newspaper_to_find, skip_upload=args.skip_upload)
 
