@@ -18,7 +18,7 @@ from googleapiclient.http import MediaFileUpload    # to upload to drive
 # from email.mime.application import MIMEApplication
 
 # Gobal variables
-file_name = './tmp/newspaper.pdf'
+# file_name = './tmp/newspaper.pdf'
 
 
 def progress_bar(current, total):
@@ -27,49 +27,77 @@ def progress_bar(current, total):
     print('\r[{}{}] {:.2%} : '.format('█' * done, '.' * (50-done), current / total) + download_status, end = '', flush = True)
 
 
-def run_telethon_client(session_string, cred, channel_link, newspaper_to_find):
+def search_for_file(client, channel, search_query, current_date, file_paths):
+    file_name = f"./tmp/{'_'.join( search_query.split(' ') )}.pdf"
+
+    # getting last message and checking if any new messages made on the same day yet
+    # filter to show only document type media, and using search to find similar file of similar names
+    for msg in client.iter_messages(channel, filter =InputMessagesFilterDocument, search = search_query, limit=2):
+
+        print(msg.document.attributes[0].file_name)
+
+        if msg.date.date() != current_date.date():
+            print("\n>> File not been uploaded today!")
+            # this means pdf files have not been uploaded yet (no message made this day yet...)
+            break
+
+        # cancel job if size is greater than 200mb or less than 10mb
+        if not  (msg.document.size > 200*10**6 or msg.document.size < 10*10**6):
+            print(f"\n>> File Found, File: {msg.document.attributes[0]}")
+            print("\n[*] Downloading File...")
+            # that means we found our pdf file
+            # we'll download this file, it will override the old file if present in the path
+            # msg.download_media(file = file_name, progress_callback = progress_bar)
+            
+            print("\n[*] File Downloaded!")
+
+            file_paths.append(file_name)
+            return True
+
+        else:
+            print(f"\n>> File skipped: {msg.document.attributes[0]}; Size: {msg.document.size / 10**6} mb")
+    return False
+
+
+def run_telethon_client(session_string, cred, channel_links, newspapers):
     # starting our telegram client
     with TelegramClient(StringSession(session_string), **cred) as client:
 
         print('>> Client Started...')
 
-        # name of channel
-        channel_name = client.get_entity(channel_link)
-
         # current date
         current_date = datetime.utcnow()
 
-        print(f'\n[*] Getting the last Chat File Upload for channel: {channel_name.title}')
+        # getting channel (can be multiple)
+        channels = client.get_entity(channel_links)
 
-        # getting last message and checking if any new messages made on the same day yet
-        # filter to show only document type media, and using search to find similar file of similar names
-        for msg in client.iter_messages(channel_name, filter =InputMessagesFilterDocument, search = newspaper_to_find, limit=2):
-
-            print(msg.document.attributes[0].file_name)
-
-            if msg.date.date() != current_date.date():
-                print("\n>> No file have been uploaded today!")
-                # this means pdf files have not been uploaded yet (no message made this day yet...)
+        file_paths = [] 
+        newspaper_download = False
+        for channel in channels:
+            if len(newspapers) == 0:
                 break
 
-            # cancel job if size is greater than 200mb
-            if not  (msg.document.size > 200*10**6 or msg.document.size < 10*10**6):
-                print(f"\n>> File Found, File: {msg.document.attributes[0]}")
-                print("\n[*] Downloading File...")
-                # that means we found our pdf file
-                # we'll download this file, it will override the old file if present in the path
-                msg.download_media(file = file_name, progress_callback = progress_bar)
+            print(f'\n[*] Getting the last Chat File Upload for channel: {channel.title}')
+            # search for each newspaper and remove that newspaper from the list
+            for newspaper_to_find in newspapers[:]:
+                if search_for_file(client, channel, newspaper_to_find, current_date, file_paths):
+                    newspapers.remove(newspaper_to_find)
+                    newspaper_download = True
+            
+        # disconnecting the client, our job is done
+        client.disconnect()
+        
+    print("\n>> Client Successfully Disconnected!")
+    
+    # not a single newspaper been downloaded 
+    if newspaper_download:
+        print(f"\n>> {len(file_paths)} Newspapers files downloaded!")
+        return True
+    else:
+       print("\n[*] No newspapers was found!")
+       return False
+        
 
-                # disconnecting the client, our job is done
-                client.disconnect()
-                print("\n>> Client Successfully Disconnected!")
-                return True
-
-            else:
-                print(f"\n>> File skipped: {msg.document.attributes[0]}; Size: {msg.document.size / 10**6} mb")
-
-
-    return False
 
 
 def upload_file_to_drive(folder_id, upload_file_name):
@@ -208,10 +236,10 @@ if __name__ == "__main__":
     drive_folder_id = ""
     mailing_list = [ ]
 
-    channel_link = 'https://t.me/TOI_dailyepaper'
-    newspaper_to_find = 'TOI DELHI'
+    channel_link = ['https://t.me/TOI_dailyepaper', 'https://t.me/EnewsPaperEarly']
+    newspaper_to_find = ['TOI DELHI']
 
-    cli_parser = argparse.ArgumentParser(description = 'Newspaper PDF Scraper + Dispatcher')
+    cli_parser = argparse.ArgumentParser(description = 'Newspaper PDF Downloader + Dispatcher')
     cli_parser.add_argument(
         '--channel_link', '-c',
         help='Specify Telegram channel link',
@@ -238,7 +266,7 @@ if __name__ == "__main__":
 
     cli_parser.add_argument(
         '--email', '-e',
-        help='Email address to send the file to',
+        help='Email address to send too',
         default = mailing_list,
         nargs='+',
         dest='email',
@@ -253,13 +281,21 @@ if __name__ == "__main__":
         metavar='EMAIL'
     )
     cli_parser.add_argument(    
-        '--newspaper', '-n',
+        '--newspaper', '-N',
         help='Newspapers to find',
         default = newspaper_to_find,
         nargs='+',
         dest='newspaper',
         metavar='NAME',
         type=str
+    )
+    cli_parser.add_argument(
+        '--add-newspaper', '-n',
+        help='Adds that search query to the list of newspapers to find',
+        type=str,
+        nargs='+',
+        dest='additional_newspapers',
+        metavar='NAME'
     )
 
     args = cli_parser.parse_args()
@@ -271,6 +307,12 @@ if __name__ == "__main__":
     newspaper_to_find = args.newspaper
     if args.additional_emails:
         mailing_list.extend(args.additional_emails)
+
+    if args.additional_newspapers:
+        newspaper_to_find.extend(args.additional_newspapers)
+
+    # for debugging 
+    print(f'{channel_link=}, {drive_folder_id=}, {mailing_list=}, {newspaper_to_find=}')
 
     # calling main function
     main(channel_link, drive_folder_id, mailing_list, newspaper_to_find)
