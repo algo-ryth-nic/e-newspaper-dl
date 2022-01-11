@@ -34,8 +34,8 @@ def search_for_file(client, channel, search_query, current_date, file_paths):
     # getting last message and checking if any new messages made on the same day yet
     # filter to show only document type media, and using search to find similar file of similar names
     for msg in client.iter_messages(channel, filter =InputMessagesFilterDocument, search = search_query, limit=2):
-
-        print(msg.document.attributes[0].file_name)
+            
+        # print(msg.document.attributes[0].file_name)
 
         if msg.date.date() != current_date.date():
             print("\n>> File not been uploaded today!")
@@ -44,8 +44,8 @@ def search_for_file(client, channel, search_query, current_date, file_paths):
 
         # cancel job if size is greater than 200mb or less than 10mb
         if not  (msg.document.size > 200*10**6 or msg.document.size < 10*10**6):
-            print(f"\n>> File Found, File: {msg.document.attributes[0]}")
-            print("\n[*] Downloading File...")
+            print(f"\n[!] {msg.document.attributes[0].file_name} [{msg.document.size/10**6:.2f}mb] File Found! ")
+            print("[*] Downloading File...")
             # that means we found our pdf file
             # we'll download this file, it will override the old file if present in the path
             msg.download_media(file = file_name, progress_callback = progress_bar)
@@ -56,7 +56,7 @@ def search_for_file(client, channel, search_query, current_date, file_paths):
             return True
 
         else:
-            print(f"\n>> File skipped: {msg.document.attributes[0]}; Size: {msg.document.size / 10**6} mb")
+            print(f">> File skipped: {msg.document.attributes[0]}; Size: {msg.document.size / 10**6} mb")
     return False
 
 
@@ -64,7 +64,7 @@ def run_telethon_client(session_string, cred, channel_links, newspapers):
     # starting our telegram client
     with TelegramClient(StringSession(session_string), **cred) as client:
 
-        print('>> Client Started...')
+        print(f'\n>> Client Started... Successfully logged in as {client.get_me().first_name}')
 
         # current date
         current_date = datetime.utcnow()
@@ -72,15 +72,25 @@ def run_telethon_client(session_string, cred, channel_links, newspapers):
         # getting channel (can be multiple)
         channels = client.get_entity(channel_links)
 
+        # outputs...
+        print(f'>> Current Date:', current_date.strftime('%d-%m-%Y'))
+        print(f'>> Getting Channel: {[c.title for c in channels]}')
+
         file_paths = [] 
         newspaper_download = False
         for channel in channels:
             if len(newspapers) == 0:
                 break
 
-            print(f'\n[*] Getting the last Chat File Upload for channel: {channel.title}')
+            print(f'\n[*] Channel: {channel.title}')
+            
+            # print(f'\n[*] Getting the last Chat File Upload for channel: {channel.title}')
+            
             # search for each newspaper and remove that newspaper from the list
             for newspaper_to_find in newspapers[:]:
+
+                print(f'>> Searching for \"{newspaper_to_find}\"')
+                
                 if search_for_file(client, channel, newspaper_to_find, current_date, file_paths):
                     newspapers.remove(newspaper_to_find)
                     newspaper_download = True
@@ -92,10 +102,10 @@ def run_telethon_client(session_string, cred, channel_links, newspapers):
     
     # not a single newspaper been downloaded 
     if newspaper_download:
-        print(f"\n>> {len(file_paths)} Newspapers files downloaded!")
+        print(f"[!] {len(file_paths)} Newspapers files downloaded!")
         return (True, file_paths)
     else:
-       print("\n[*] No newspapers was found!")
+       print("\n[!] No newspapers was found!")
        return (False, None)
         
 
@@ -165,6 +175,7 @@ def send_email_using_gmailAPI(To, Subject, Body):
                 Body: \n{Body}\n""")
 
     print('[gmail-Service] Preparing to send...')
+    print(f'[gmail-Service] Sending to addresses: {To}')
 
     # sending...
     message = service.users().messages().send(userId='me', body={'raw': raw_string}).execute()
@@ -232,7 +243,7 @@ def get_cred():
 
 
 def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_upload):
-    print("Script has started running")
+    print(">> Script started running!")
     # event is <dict>
 
     # --------------------------------------- Getting All Credentials for telegram ------------------------------
@@ -240,7 +251,7 @@ def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_u
     # ---------------------------------------------------------
 
     # telegram channel link
-    print(channel_link)
+    # print(channel_link)
 
     # start telegram scraper
     status = run_telethon_client(auth_key, cred, channel_link, newspapers_to_find)
@@ -264,12 +275,14 @@ def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_u
                     # FOLDER ID
                     folder_id = drive_folder_id
                     new_file_name = name.upper()+ '-' + current_date.strftime("%d-%m-%y")
-    
+
+                    print(f"\n>> Preparing file upload for \"{new_file_name}\" to drive...")
+                    print(f"[*] File: {file_path}, Size: {file_size:.2f} mb")
                     link = upload_file_to_drive(folder_id, new_file_name, file_path)
 
-                    print(f"\n[*] File: {file_path}\nSize: {file_size} mb\n[*] Successfully Uploaded!\n")
+                    print(f"[*] Successfully Uploaded!\n")
                 else:
-                    print(f"\n[*] File: {file_path}\nSize: {file_size} mb\n[*] Skipped Uploading!\n")
+                    print(f"[*] File: {file_path}, Size: {file_size:.2f} mb\n[*] Skipped Uploading!\n")
                 # link of the file if it was uploaded to drive, later added to body of email
                 msg_drive_link = "Link to the Newspaper: " + link if link else "\n"
 
@@ -284,8 +297,8 @@ def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_u
 
     This is an automated message... Please don't reply to this email.
                 """
-                print(body)
-                # send_email_using_gmailAPI(to, subject, body)
+
+                send_email_using_gmailAPI(to, subject, body)
 
                 print("\n[*] Success!")
 
