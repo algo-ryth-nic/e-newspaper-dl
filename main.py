@@ -307,13 +307,17 @@ if __name__ == "__main__":
     drive_folder_id = ""
     mailing_list = [ ]
 
-    channel_link = ['https://t.me/TOI_dailyepaper', 'https://t.me/EnewsPaperEarly']
-    newspaper_to_find = ['TOI DELHI']
+    channel_link = []
+    look_for = []
 
-    cli_parser = argparse.ArgumentParser(description = 'Newspaper PDF Downloader + Dispatcher')
+    cli_parser = argparse.ArgumentParser(
+        description = "Newspaper PDF Downloader + Dispatcher.Looks within the telegram-channels for the specified \
+            newspaper (file name) that were added today and sends an email with the link to the newspaper. \
+            When a file is found, it is downloaded to the local machine in './tmp' directory. The file is also uploaded to google drive as some attachments above 50mb in size\
+            cannot be sent via gmail, they can only be shared through google-drive.")
     cli_parser.add_argument(
         '--channel_link', '-c',
-        help='Specify Telegram channel link',
+        help='specify Telegram channel link(s)',
         default = channel_link,
         dest='channel_link',
         metavar='LINK',
@@ -321,7 +325,7 @@ if __name__ == "__main__":
     )
     cli_parser.add_argument(
         '--drive_folder_id', '-d',
-        help='Specify Google Drive folder ID to upload the file',
+        help='specify Google Drive folder ID, the files will be uploaded to this folder',
         default = drive_folder_id,
         dest='drive_folder_id',
         metavar='ID',
@@ -329,7 +333,7 @@ if __name__ == "__main__":
     )
     cli_parser.add_argument(
         '--skip-upload',
-        help='Skip uploading to drive if size of file is less than 35mb',
+        help='skips uploading to drive if size of file is less than 35mb',
         action='store_true',
         dest='skip_upload',
         default=False
@@ -337,7 +341,7 @@ if __name__ == "__main__":
 
     cli_parser.add_argument(
         '--email', '-e',
-        help='Email address to send too',
+        help='email address to send too, multiple emails can be specified by separating them with whitespaces',
         default = mailing_list,
         nargs='+',
         dest='email',
@@ -345,7 +349,7 @@ if __name__ == "__main__":
     )
     cli_parser.add_argument(
         '--add-mail-list', '-a',
-        help='Add email address to current mailing list',
+        help='add email address to current mailing list, multiple emails can be specified by separating them with whitespaces',
         type=str,
         nargs='+',
         dest='additional_emails',
@@ -353,8 +357,8 @@ if __name__ == "__main__":
     )
     cli_parser.add_argument(    
         '--newspaper', '-N',
-        help='Newspapers to find',
-        default = newspaper_to_find,
+        help='newspapers to find in the telegram-channels, multiple newspapers can be specified by separating them with whitespaces',
+        default = look_for,
         nargs='+',
         dest='newspaper',
         metavar='NAME',
@@ -362,7 +366,7 @@ if __name__ == "__main__":
     )
     cli_parser.add_argument(
         '--add-newspaper', '-n',
-        help='Adds that search query to the list of newspapers to find',
+        help='adds that search query to the current list of newspapers to find',
         type=str,
         nargs='+',
         dest='additional_newspapers',
@@ -375,16 +379,27 @@ if __name__ == "__main__":
     channel_link = args.channel_link
     drive_folder_id = args.drive_folder_id
     mailing_list = args.email
-    newspaper_to_find = args.newspaper
+    look_for = args.newspaper
     if args.additional_emails:
         mailing_list.extend(args.additional_emails)
 
     if args.additional_newspapers:
-        newspaper_to_find.extend(args.additional_newspapers)
+        look_for.extend(args.additional_newspapers)
+
 
     # for debugging 
-    print(f'Default Settings\n{channel_link=}, {drive_folder_id=}, {mailing_list=}, {newspaper_to_find=}\n')
+    print(f'[?] Default Settings\n{channel_link=}, {drive_folder_id=}, {mailing_list=}, {look_for=}\n')
+
+    # if either drive_folder_id, channel_link, look_for & mailing_list are empty, then exit
+    if not (drive_folder_id and channel_link and look_for and mailing_list): 
+        print("[*] Please specify all of the following:")
+        print("\t1. Google Drive Folder ID")
+        print("\t2. Telegram Channel Link(s)")
+        print("\t3. Newspapers to look for")
+        print("\t4. Email address to send too")
+        print('for more information, run the script with --help or -h\n')
+        exit()
 
     # calling main function
-    main(channel_link, drive_folder_id, mailing_list, newspaper_to_find, skip_upload=args.skip_upload)
+    main(channel_link, drive_folder_id, mailing_list, look_for, skip_upload=args.skip_upload)
 
