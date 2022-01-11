@@ -309,8 +309,8 @@ if __name__ == "__main__":
     drive_folder_id = ""
     mailing_list = [ ]
 
-    channel_link = []
-    look_for = []
+    channel_link = ['https://t.me/TOI_dailyepaper', 'https://t.me/EnewsPaperEarly']
+    look_for = ['TOI DELHI']
 
     # ---- Parsing Arguments ----
     args = parse_cli_args(channel_link, drive_folder_id, mailing_list, look_for)
