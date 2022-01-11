@@ -31,3 +31,18 @@ optional arguments:
                         adds that search query to the current list of newspapers to find
 
 ```
+
+Running main.py should mention all it needs/thats missing.
+
+- Prerequisites
+  1. Python 3.8 >=
+  2. [telegram api credentials](https://core.telegram.org/api/obtaining_api_id) 
+  3. Google drive folder id. 
+      - ![](https://i.imgur.com/5crtc2M.png)
+  4. Client_id.json for OAuth Access (for gmail-api & drive api) 
+    - create a new google account (optional); Can use your own... the mails will then be sent through your account.    
+    - go to [`console.cloud.google`](https://console.cloud.google.com), create new project
+    - enable gmail API & drive API through api library
+    - get [`client_id.json`](https://developers.google.com/workspace/guides/create-credentials#oauth-client-id)
+      - Choose `desktop application` 
+  5. A telegram channel that uploads newspapers daily
