@@ -1,3 +1,4 @@
+from telethon.client import auth
 from telethon.sync import TelegramClient, events
 from telethon.sessions import StringSession
 from telethon.tl.types import InputMessagesFilterDocument
@@ -171,22 +172,71 @@ def send_email_using_gmailAPI(To, Subject, Body):
     print(f"\n[gmail-Service] {message}")
 
 
+def generate_new_string_session(cred):
+    # creates session in memory and is then stored as a string                      
+    # this is the most portable way to use the application,
+    # we just need to pass string next time to use login into the same session                      
+    # nothing will be cached in the memory, so the session will be lost when the app is closed
+    # we will store this session_string in session.pickle for later use  
+    
+    session = ""
+    with TelegramClient(StringSession(), **cred) as client:                     
+        session = client.session.save()    
+        # save this session string in a telegram_session.pickle file
+        with open('session.pickle', 'wb') as f:
+            pickle.dump(session, f)
+        client.disconnect()
+
+    return session
+
+
+def get_cred():
+    # getting api credentials for telethon
+    telegram_cred = {}
+
+    try:
+        with open('api_credentials.json', 'r') as f:
+            telegram_cred = json.loads(f.read())
+            print(">> Credentials Loaded!")
+
+    except FileNotFoundError:   
+        print("\n[*] No api credentials for telegram found!")
+        print("[*] Please create a file named 'api_credentials.json' with the following structure:")
+        print("""
+        {
+           "api_id" : "<your_api_id>",
+	   "api_hash" : "<your_api_hash>"
+        }
+        """)
+        exit()
+
+    # getting auth-key session string
+    session_string = None
+    try:
+        with open('session.pickle', 'rb') as f:
+            session_string = pickle.load(f)
+            
+            # if session_string is None, we need to generate a new one
+            if session_string is None:
+                raise FileNotFoundError()
+
+            print(">> Session Loaded!")
+
+    except FileNotFoundError:
+        print("\n[*] No session found!")
+        session_string = generate_new_string_session(telegram_cred)
+        print(">> Session Created!")
+
+
+    return telegram_cred, session_string
+
+
 def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_upload):
     print("Script has started running")
     # event is <dict>
 
     # --------------------------------------- Getting All Credentials for telegram ------------------------------
-
-    # getting api credentials for telethon
-    cred = {}
-    with open('api_credentials.json', 'r') as f:
-        cred = json.loads(f.read())
-
-    # getting auth-key session string
-    auth_key = None
-    with open('aws-lambda-toi-session.pickle', 'rb') as f:
-        auth_key = pickle.load(f)
-
+    cred, auth_key = get_cred()
     # ---------------------------------------------------------
 
     # telegram channel link
