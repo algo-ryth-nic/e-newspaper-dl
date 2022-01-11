@@ -35,8 +35,6 @@ def search_for_file(client, channel, search_query, current_date, file_paths):
     # filter to show only document type media, and using search to find similar file of similar names
     for msg in client.iter_messages(channel, filter =InputMessagesFilterDocument, search = search_query, limit=2):
             
-        # print(msg.document.attributes[0].file_name)
-
         if msg.date.date() != current_date.date():
             print("\n>> File not been uploaded today!")
             # this means pdf files have not been uploaded yet (no message made this day yet...)
@@ -83,8 +81,6 @@ def run_telethon_client(session_string, cred, channel_links, newspapers):
                 break
 
             print(f'\n[*] Channel: {channel.title}')
-            
-            # print(f'\n[*] Getting the last Chat File Upload for channel: {channel.title}')
             
             # search for each newspaper and remove that newspaper from the list
             for newspaper_to_find in newspapers[:]:
@@ -244,15 +240,11 @@ def get_cred():
 
 def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_upload):
     print(">> Script started running!")
-    # event is <dict>
 
-    # --------------------------------------- Getting All Credentials for telegram ------------------------------
+    # ---- Getting All Credentials for telegram ----
     cred, auth_key = get_cred()
-    # ---------------------------------------------------------
 
-    # telegram channel link
-    # print(channel_link)
-
+    
     # start telegram scraper
     status = run_telethon_client(auth_key, cred, channel_link, newspapers_to_find)
 
@@ -276,19 +268,21 @@ def main(channel_link, drive_folder_id, mailing_list, newspapers_to_find, skip_u
                     folder_id = drive_folder_id
                     new_file_name = name.upper()+ '-' + current_date.strftime("%d-%m-%y")
 
-                    print(f"\n>> Preparing file upload for \"{new_file_name}\" to drive...")
+                    print(f"\n>> Preparing file upload to drive...")
                     print(f"[*] File: {file_path}, Size: {file_size:.2f} mb")
                     link = upload_file_to_drive(folder_id, new_file_name, file_path)
 
                     print(f"[*] Successfully Uploaded!\n")
                 else:
                     print(f"[*] File: {file_path}, Size: {file_size:.2f} mb\n[*] Skipped Uploading!\n")
+                
                 # link of the file if it was uploaded to drive, later added to body of email
                 msg_drive_link = "Link to the Newspaper: " + link if link else "\n"
 
-                # sending email
-                to = mailing_list
 
+                # sending email
+                print(">> Preparing to send email...")
+                to = mailing_list
                 subject = name.upper() + " " + current_date.strftime("%d/%m/%y")
                 body =f"""{name.upper()} newspaper for \"{current_date.strftime("%A, %B %d, %Y")}\" will be found below along with the link to it.\n
     {msg_drive_link}
@@ -389,7 +383,7 @@ if __name__ == "__main__":
         newspaper_to_find.extend(args.additional_newspapers)
 
     # for debugging 
-    print(f'{channel_link=}, {drive_folder_id=}, {mailing_list=}, {newspaper_to_find=}')
+    print(f'Default Settings\n{channel_link=}, {drive_folder_id=}, {mailing_list=}, {newspaper_to_find=}\n')
 
     # calling main function
     main(channel_link, drive_folder_id, mailing_list, newspaper_to_find, skip_upload=args.skip_upload)
